@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     identity_service_url: str = "http://localhost:8001"
     registration_service_url: str = "http://localhost:8002"
     admin_service_url: str = "http://localhost:8003"
+    cors_allowed_origins: str = (
+        "https://dist-phi-livid-17.vercel.app,"
+        "https://dist-5whgbucq6-apoorv-jains-projects-48c4afa9.vercel.app,"
+        "http://localhost:8081,"
+        "http://localhost:19006"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -20,4 +26,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-
