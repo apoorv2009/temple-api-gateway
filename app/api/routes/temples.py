@@ -1,16 +1,19 @@
 import httpx
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.core.config import get_settings
 from app.schemas.temple import (
     ActiveTempleListResponse,
     BulkTempleAdminCreateRequest,
     BulkTempleAdminCreateResponse,
+    ShantidharaSlotListResponse,
     LeadershipMemberCreateRequest,
     LeadershipMemberResponse,
+    TempleNewsFeedListResponse,
     TempleCreateRequest,
     TempleDetailResponse,
     TempleResponse,
+    TempleWallOfFameListResponse,
 )
 
 router = APIRouter()
@@ -121,3 +124,37 @@ async def activate_temple(temple_id: str) -> TempleResponse:
         url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/activate",
     )
     return TempleResponse.model_validate(body)
+
+
+@router.get("/{temple_id}/news-feed", response_model=TempleNewsFeedListResponse)
+async def list_temple_news_feed(temple_id: str) -> TempleNewsFeedListResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="GET",
+        url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/news-feed",
+    )
+    return TempleNewsFeedListResponse.model_validate(body)
+
+
+@router.get("/{temple_id}/wall-of-fame", response_model=TempleWallOfFameListResponse)
+async def list_temple_wall_of_fame(temple_id: str) -> TempleWallOfFameListResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="GET",
+        url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/wall-of-fame",
+    )
+    return TempleWallOfFameListResponse.model_validate(body)
+
+
+@router.get("/{temple_id}/shantidhara/slots", response_model=ShantidharaSlotListResponse)
+async def list_shantidhara_slots(
+    temple_id: str,
+    slot_date: str | None = Query(default=None),
+) -> ShantidharaSlotListResponse:
+    settings = get_settings()
+    suffix = f"?slot_date={slot_date}" if slot_date else ""
+    body = await _forward_request(
+        method="GET",
+        url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/shantidhara/slots{suffix}",
+    )
+    return ShantidharaSlotListResponse.model_validate(body)

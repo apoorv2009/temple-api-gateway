@@ -3,6 +3,12 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from app.core.config import get_settings
 from app.schemas.signup_request import (
+    DonationCreateRequest,
+    DonationListResponse,
+    DonationResponse,
+    ShantidharaBookingCreateRequest,
+    ShantidharaBookingListResponse,
+    ShantidharaBookingResponse,
     TempleSubscriptionCreateRequest,
     TempleSubscriptionListResponse,
     TempleSubscriptionResponse,
@@ -66,3 +72,61 @@ async def list_my_temple_subscriptions(
         url=f"{settings.registration_service_url}/api/v1/temple-subscriptions/me?user_id={user_id}",
     )
     return TempleSubscriptionListResponse.model_validate(body)
+
+
+@router.post("/shantidhara-bookings", response_model=ShantidharaBookingResponse)
+async def create_shantidhara_booking(
+    payload: ShantidharaBookingCreateRequest,
+) -> ShantidharaBookingResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="POST",
+        url=f"{settings.registration_service_url}/api/v1/temple-subscriptions/shantidhara-bookings",
+        body=payload.model_dump(),
+    )
+    return ShantidharaBookingResponse.model_validate(body)
+
+
+@router.get("/shantidhara-bookings/me", response_model=ShantidharaBookingListResponse)
+async def list_my_shantidhara_bookings(
+    user_id: str = Query(..., min_length=3),
+    temple_id: str | None = Query(default=None),
+) -> ShantidharaBookingListResponse:
+    settings = get_settings()
+    suffix = f"&temple_id={temple_id}" if temple_id else ""
+    body = await _forward_request(
+        method="GET",
+        url=(
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/shantidhara-bookings/me"
+            f"?user_id={user_id}{suffix}"
+        ),
+    )
+    return ShantidharaBookingListResponse.model_validate(body)
+
+
+@router.post("/donations", response_model=DonationResponse)
+async def create_donation(payload: DonationCreateRequest) -> DonationResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="POST",
+        url=f"{settings.registration_service_url}/api/v1/temple-subscriptions/donations",
+        body=payload.model_dump(),
+    )
+    return DonationResponse.model_validate(body)
+
+
+@router.get("/donations/me", response_model=DonationListResponse)
+async def list_my_donations(
+    user_id: str = Query(..., min_length=3),
+    temple_id: str | None = Query(default=None),
+) -> DonationListResponse:
+    settings = get_settings()
+    suffix = f"&temple_id={temple_id}" if temple_id else ""
+    body = await _forward_request(
+        method="GET",
+        url=(
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/donations/me"
+            f"?user_id={user_id}{suffix}"
+        ),
+    )
+    return DonationListResponse.model_validate(body)
