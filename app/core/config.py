@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     registration_service_url: str = "http://localhost:8002"
     admin_service_url: str = "http://localhost:8003"
     cors_allowed_origins: str = (
+        "https://temple-app-lake.vercel.app,"
         "https://dist-phi-livid-17.vercel.app,"
         "https://dist-5whgbucq6-apoorv-jains-projects-48c4afa9.vercel.app,"
         "http://localhost:8081,"
