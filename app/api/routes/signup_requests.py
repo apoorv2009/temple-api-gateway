@@ -6,6 +6,7 @@ from app.schemas.signup_request import (
     DonationCreateRequest,
     DonationListResponse,
     DonationResponse,
+    MemberActivityListResponse,
     ShantidharaBookingCreateRequest,
     ShantidharaBookingListResponse,
     ShantidharaBookingResponse,
@@ -23,8 +24,11 @@ async def _forward_request(
     url: str,
     body: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    settings = get_settings()
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.upstream_timeout_seconds),
+        ) as client:
             response = await client.request(method=method, url=url, json=body)
     except httpx.HTTPError as exc:
         raise HTTPException(
@@ -130,3 +134,19 @@ async def list_my_donations(
         ),
     )
     return DonationListResponse.model_validate(body)
+
+
+@router.get("/member-activity/me", response_model=MemberActivityListResponse)
+async def list_my_member_activity(
+    user_id: str = Query(..., min_length=3),
+    limit: int = Query(default=20, ge=1, le=50),
+) -> MemberActivityListResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="GET",
+        url=(
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/member-activity/me"
+            f"?user_id={user_id}&limit={limit}"
+        ),
+    )
+    return MemberActivityListResponse.model_validate(body)

@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     identity_service_url: str = "http://localhost:8001"
     registration_service_url: str = "http://localhost:8002"
     admin_service_url: str = "http://localhost:8003"
+    upstream_timeout_seconds: float = 75.0
     cors_allowed_origins: str = (
         "https://temple-app-lake.vercel.app,"
         "https://dist-phi-livid-17.vercel.app,"

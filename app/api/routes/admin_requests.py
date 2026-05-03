@@ -19,8 +19,11 @@ async def _forward_request(
     url: str,
     body: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    settings = get_settings()
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.upstream_timeout_seconds),
+        ) as client:
             response = await client.request(method=method, url=url, json=body)
     except httpx.HTTPError as exc:
         raise HTTPException(

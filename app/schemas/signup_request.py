@@ -110,3 +110,22 @@ class DonationItem(BaseModel):
 class DonationListResponse(BaseModel):
     items: list[DonationItem]
     phase: str = "temple_donation"
+
+
+class MemberActivityItem(BaseModel):
+    activity_id: str
+    activity_type: Literal["shantidhara_booking", "donation"]
+    temple_id: str
+    temple_name: str
+    title: str
+    detail: str
+    amount_label: str
+    status: str
+    payment_id: str | None = None
+    created_at: str
+    phase: str = "member_activity"
+
+
+class MemberActivityListResponse(BaseModel):
+    items: list[MemberActivityItem]
+    phase: str = "member_activity"
