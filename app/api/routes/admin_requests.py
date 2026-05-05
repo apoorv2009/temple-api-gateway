@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -20,22 +21,39 @@ async def _forward_request(
     body: dict[str, object] | None = None,
 ) -> dict[str, object]:
     settings = get_settings()
-    try:
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(settings.upstream_timeout_seconds),
-        ) as client:
-            response = await client.request(method=method, url=url, json=body)
-    except httpx.HTTPError as exc:
+    attempts = max(1, settings.upstream_retry_attempts)
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(settings.upstream_timeout_seconds),
+            ) as client:
+                response = await client.request(method=method, url=url, json=body)
+        except httpx.HTTPError as exc:
+            last_error = exc
+            if attempt < attempts - 1:
+                await asyncio.sleep(1 + attempt)
+                continue
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Unable to reach admin service",
+            ) from exc
+
+        if response.status_code >= 500:
+            if attempt < attempts - 1:
+                await asyncio.sleep(1 + attempt)
+                continue
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Admin service returned an unexpected error",
+            )
+
+        break
+    else:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Unable to reach admin service",
-        ) from exc
-
-    if response.status_code >= 500:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Admin service returned an unexpected error",
-        )
+        ) from last_error
 
     if response.status_code >= 400:
         detail = "Unable to process temple subscription admin request"

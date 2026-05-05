@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from fastapi import APIRouter, HTTPException, status
 
@@ -15,23 +16,40 @@ async def _forward_auth_request(
 ) -> dict[str, object]:
     settings = get_settings()
     url = f"{settings.identity_service_url}{path}"
+    attempts = max(1, settings.upstream_retry_attempts)
+    last_error: Exception | None = None
 
-    try:
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(settings.upstream_timeout_seconds),
-        ) as client:
-            response = await client.post(url, json=body)
-    except httpx.HTTPError as exc:
+    for attempt in range(attempts):
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(settings.upstream_timeout_seconds),
+            ) as client:
+                response = await client.post(url, json=body)
+        except httpx.HTTPError as exc:
+            last_error = exc
+            if attempt < attempts - 1:
+                await asyncio.sleep(1 + attempt)
+                continue
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Unable to reach identity service",
+            ) from exc
+
+        if response.status_code >= 500:
+            if attempt < attempts - 1:
+                await asyncio.sleep(1 + attempt)
+                continue
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Identity service returned an unexpected error",
+            )
+
+        break
+    else:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Unable to reach identity service",
-        ) from exc
-
-    if response.status_code >= 500:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Identity service returned an unexpected error",
-        )
+        ) from last_error
 
     if response.status_code >= 400:
         detail = default_error
