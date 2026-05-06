@@ -10,10 +10,14 @@ from app.schemas.temple import (
     ShantidharaSlotListResponse,
     LeadershipMemberCreateRequest,
     LeadershipMemberResponse,
+    TempleNewsFeedCreateRequest,
     TempleNewsFeedListResponse,
+    TempleNewsFeedItemResponse,
     TempleCreateRequest,
     TempleDetailResponse,
     TempleResponse,
+    TempleWallOfFameCreateRequest,
+    TempleWallOfFameItemResponse,
     TempleWallOfFameListResponse,
 )
 
@@ -161,6 +165,20 @@ async def list_temple_news_feed(temple_id: str) -> TempleNewsFeedListResponse:
     return TempleNewsFeedListResponse.model_validate(body)
 
 
+@router.post("/{temple_id}/news-feed", response_model=TempleNewsFeedItemResponse)
+async def create_temple_news_feed(
+    temple_id: str,
+    payload: TempleNewsFeedCreateRequest,
+) -> TempleNewsFeedItemResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="POST",
+        url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/news-feed",
+        body=payload.model_dump(),
+    )
+    return TempleNewsFeedItemResponse.model_validate(body)
+
+
 @router.get("/{temple_id}/wall-of-fame", response_model=TempleWallOfFameListResponse)
 async def list_temple_wall_of_fame(temple_id: str) -> TempleWallOfFameListResponse:
     settings = get_settings()
@@ -169,6 +187,20 @@ async def list_temple_wall_of_fame(temple_id: str) -> TempleWallOfFameListRespon
         url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/wall-of-fame",
     )
     return TempleWallOfFameListResponse.model_validate(body)
+
+
+@router.post("/{temple_id}/wall-of-fame", response_model=TempleWallOfFameItemResponse)
+async def create_temple_wall_of_fame(
+    temple_id: str,
+    payload: TempleWallOfFameCreateRequest,
+) -> TempleWallOfFameItemResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="POST",
+        url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/wall-of-fame",
+        body=payload.model_dump(),
+    )
+    return TempleWallOfFameItemResponse.model_validate(body)
 
 
 @router.get("/{temple_id}/shantidhara/slots", response_model=ShantidharaSlotListResponse)
