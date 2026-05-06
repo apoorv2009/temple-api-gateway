@@ -42,3 +42,25 @@ async def prewarm_temple_access() -> dict[str, str]:
         ) from exc
 
     return {"status": "warm"}
+
+
+@router.get("/status/prewarm-app")
+async def prewarm_app() -> dict[str, str]:
+    settings = get_settings()
+
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.upstream_timeout_seconds),
+        ) as client:
+            await asyncio.gather(
+                client.get(f"{settings.identity_service_url}/health"),
+                client.get(f"{settings.registration_service_url}/health"),
+                client.get(f"{settings.admin_service_url}/health"),
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to prewarm app services",
+        ) from exc
+
+    return {"status": "warm"}
