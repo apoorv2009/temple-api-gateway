@@ -1,4 +1,5 @@
 import asyncio
+
 import httpx
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -8,6 +9,7 @@ from app.schemas.admin_request import (
     ApprovalResponse,
     RejectRequest,
     RejectResponse,
+    TempleSubscriptionItem,
     TempleSubscriptionListResponse,
 )
 
@@ -22,11 +24,14 @@ async def _forward_request(
     *,
     method: str,
     url: str,
+    downstream_name: str,
+    default_error: str,
     body: dict[str, object] | None = None,
 ) -> dict[str, object]:
     settings = get_settings()
     attempts = max(1, settings.upstream_retry_attempts)
     last_error: Exception | None = None
+
     for attempt in range(attempts):
         try:
             async with httpx.AsyncClient(
@@ -40,7 +45,7 @@ async def _forward_request(
                 continue
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Unable to reach admin service",
+                detail=f"Unable to reach {downstream_name}",
             ) from exc
 
         if response.status_code >= 500:
@@ -49,26 +54,23 @@ async def _forward_request(
                 continue
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Admin service returned an unexpected error",
+                detail=f"{downstream_name.capitalize()} returned an unexpected error",
             )
 
-        break
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to reach admin service",
-        ) from last_error
+        if response.status_code >= 400:
+            detail = default_error
+            try:
+                detail = response.json().get("detail", detail)
+            except ValueError:
+                pass
+            raise HTTPException(status_code=response.status_code, detail=detail)
 
-    if response.status_code >= 400:
-        detail = "Unable to process temple subscription admin request"
-        try:
-            body_data = response.json()
-            detail = body_data.get("detail", detail)
-        except ValueError:
-            pass
-        raise HTTPException(status_code=response.status_code, detail=detail)
+        return response.json()
 
-    return response.json()
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=f"Unable to reach {downstream_name}",
+    ) from last_error
 
 
 @router.get("", response_model=TempleSubscriptionListResponse)
@@ -80,9 +82,11 @@ async def list_temple_subscriptions(
     body = await _forward_request(
         method="GET",
         url=(
-            f"{settings.admin_service_url}/api/v1/admin/temple-subscriptions"
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/admin/list"
             f"?temple_id={temple_id}&status_filter={status_filter}"
         ),
+        downstream_name="registration service",
+        default_error="Unable to load temple subscription requests",
     )
     return TempleSubscriptionListResponse.model_validate(body)
 
@@ -93,12 +97,48 @@ async def approve_temple_subscription(
     payload: ApprovalRequest,
 ) -> ApprovalResponse:
     settings = get_settings()
-    body = await _forward_request(
-        method="POST",
-        url=f"{settings.admin_service_url}/api/v1/admin/temple-subscriptions/{subscription_id}/approve",
-        body=payload.model_dump(),
+
+    current = await _forward_request(
+        method="GET",
+        url=(
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/admin/list"
+            f"?temple_id={payload.temple_id}&status_filter=pending"
+        ),
+        downstream_name="registration service",
+        default_error="Unable to load temple subscription requests",
     )
-    return ApprovalResponse.model_validate(body)
+    matching = [
+        item for item in current.get("items", []) if item.get("subscription_id") == subscription_id
+    ]
+    if not matching:
+        raise HTTPException(status_code=403, detail="Temple admin cannot approve another temple's request")
+
+    approved_body = await _forward_request(
+        method="POST",
+        url=f"{settings.registration_service_url}/api/v1/temple-subscriptions/admin/{subscription_id}/approve",
+        body={},
+        downstream_name="registration service",
+        default_error="Unable to approve temple subscription request",
+    )
+    item = TempleSubscriptionItem.model_validate(approved_body)
+
+    await _forward_request(
+        method="POST",
+        url=f"{settings.identity_service_url}/api/v1/auth/internal/devotees/assign-temple",
+        body={
+            "user_id": item.user_id,
+            "temple_id": item.temple_id,
+            "temple_name": item.temple_name,
+        },
+        downstream_name="identity service",
+        default_error="Temple request was approved, but the devotee profile could not be updated",
+    )
+
+    return ApprovalResponse(
+        subscription_id=item.subscription_id,
+        status="approved",
+        temple_id=item.temple_id,
+    )
 
 
 @router.post("/{subscription_id}/reject", response_model=RejectResponse)
@@ -107,9 +147,31 @@ async def reject_temple_subscription(
     payload: RejectRequest,
 ) -> RejectResponse:
     settings = get_settings()
-    body = await _forward_request(
-        method="POST",
-        url=f"{settings.admin_service_url}/api/v1/admin/temple-subscriptions/{subscription_id}/reject",
-        body=payload.model_dump(),
+    current = await _forward_request(
+        method="GET",
+        url=(
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/admin/list"
+            f"?temple_id={payload.temple_id}&status_filter=pending"
+        ),
+        downstream_name="registration service",
+        default_error="Unable to load temple subscription requests",
     )
-    return RejectResponse.model_validate(body)
+    matching = [
+        item for item in current.get("items", []) if item.get("subscription_id") == subscription_id
+    ]
+    if not matching:
+        raise HTTPException(status_code=403, detail="Temple admin cannot reject another temple's request")
+
+    await _forward_request(
+        method="POST",
+        url=f"{settings.registration_service_url}/api/v1/temple-subscriptions/admin/{subscription_id}/reject",
+        body={"reason": payload.reason},
+        downstream_name="registration service",
+        default_error="Unable to reject temple subscription request",
+    )
+    return RejectResponse(
+        subscription_id=subscription_id,
+        status="rejected",
+        reason=payload.reason,
+        temple_id=payload.temple_id,
+    )
