@@ -8,6 +8,8 @@ from app.schemas.signup_request import (
     DonationListResponse,
     DonationResponse,
     MemberActivityListResponse,
+    PaymentSubmissionCreateRequest,
+    PaymentSubmissionResponse,
     ShantidharaBookingCreateRequest,
     ShantidharaBookingListResponse,
     ShantidharaBookingResponse,
@@ -130,6 +132,26 @@ async def list_my_shantidhara_bookings(
     return ShantidharaBookingListResponse.model_validate(body)
 
 
+@router.post(
+    "/shantidhara-bookings/{booking_id}/payment-submission",
+    response_model=PaymentSubmissionResponse,
+)
+async def submit_shantidhara_payment(
+    booking_id: str,
+    payload: PaymentSubmissionCreateRequest,
+) -> PaymentSubmissionResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="POST",
+        url=(
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/"
+            f"shantidhara-bookings/{booking_id}/payment-submission"
+        ),
+        body=payload.model_dump(),
+    )
+    return PaymentSubmissionResponse.model_validate(body)
+
+
 @router.post("/donations", response_model=DonationResponse)
 async def create_donation(payload: DonationCreateRequest) -> DonationResponse:
     settings = get_settings()
@@ -156,6 +178,26 @@ async def list_my_donations(
         ),
     )
     return DonationListResponse.model_validate(body)
+
+
+@router.post(
+    "/donations/{donation_id}/payment-submission",
+    response_model=PaymentSubmissionResponse,
+)
+async def submit_donation_payment(
+    donation_id: str,
+    payload: PaymentSubmissionCreateRequest,
+) -> PaymentSubmissionResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="POST",
+        url=(
+            f"{settings.registration_service_url}/api/v1/temple-subscriptions/"
+            f"donations/{donation_id}/payment-submission"
+        ),
+        body=payload.model_dump(),
+    )
+    return PaymentSubmissionResponse.model_validate(body)
 
 
 @router.get("/member-activity/me", response_model=MemberActivityListResponse)

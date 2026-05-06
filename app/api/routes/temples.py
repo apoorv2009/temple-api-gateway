@@ -8,11 +8,13 @@ from app.schemas.temple import (
     BulkTempleAdminCreateRequest,
     BulkTempleAdminCreateResponse,
     ShantidharaSlotListResponse,
+    ShantidharaSlotResponse,
     LeadershipMemberCreateRequest,
     LeadershipMemberResponse,
     TempleNewsFeedCreateRequest,
     TempleNewsFeedListResponse,
     TempleNewsFeedItemResponse,
+    TemplePaymentProfileResponse,
     TempleCreateRequest,
     TempleDetailResponse,
     TempleResponse,
@@ -215,3 +217,26 @@ async def list_shantidhara_slots(
         url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/shantidhara/slots{suffix}",
     )
     return ShantidharaSlotListResponse.model_validate(body)
+
+
+@router.post("/{temple_id}/shantidhara/slots/{slot_id}/reserve", response_model=ShantidharaSlotResponse)
+async def reserve_shantidhara_slot(
+    temple_id: str,
+    slot_id: str,
+) -> ShantidharaSlotResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="POST",
+        url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/shantidhara/slots/{slot_id}/reserve",
+    )
+    return ShantidharaSlotResponse.model_validate(body)
+
+
+@router.get("/{temple_id}/payment-profile", response_model=TemplePaymentProfileResponse)
+async def get_temple_payment_profile(temple_id: str) -> TemplePaymentProfileResponse:
+    settings = get_settings()
+    body = await _forward_request(
+        method="GET",
+        url=f"{settings.admin_service_url}/api/v1/temples/{temple_id}/payment-profile",
+    )
+    return TemplePaymentProfileResponse.model_validate(body)

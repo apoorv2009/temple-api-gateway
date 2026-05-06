@@ -122,3 +122,12 @@ class ShantidharaSlotResponse(BaseModel):
 class ShantidharaSlotListResponse(BaseModel):
     items: list[ShantidharaSlotResponse]
     phase: str = "temple_booking"
+
+
+class TemplePaymentProfileResponse(BaseModel):
+    temple_id: str
+    temple_name: str
+    account_label: str
+    qr_payload: str
+    payment_instructions: str
+    phase: str = "temple_payment"

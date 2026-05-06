@@ -52,7 +52,7 @@ class ShantidharaBookingResponse(BaseModel):
     slot_label: str
     slot_date: str
     amount_label: str
-    status: Literal["payment_pending"]
+    status: Literal["payment_pending", "payment_submitted"]
     payment_id: str
     phase: str = "temple_booking"
 
@@ -90,7 +90,7 @@ class DonationResponse(BaseModel):
     temple_name: str
     donation_type: Literal["monthly", "one_time"]
     amount_label: str
-    status: Literal["payment_pending"]
+    status: Literal["payment_pending", "payment_submitted"]
     payment_id: str
     phase: str = "temple_donation"
 
@@ -129,3 +129,20 @@ class MemberActivityItem(BaseModel):
 class MemberActivityListResponse(BaseModel):
     items: list[MemberActivityItem]
     phase: str = "member_activity"
+
+
+class PaymentSubmissionCreateRequest(BaseModel):
+    user_id: str = Field(..., min_length=3, max_length=32)
+    screenshot_name: str = Field(..., min_length=3, max_length=255)
+    screenshot_base64: str = Field(..., min_length=20)
+
+
+class PaymentSubmissionResponse(BaseModel):
+    submission_id: str
+    payment_id: str
+    entity_type: Literal["shantidhara_booking", "donation_order"]
+    entity_id: str
+    temple_id: str
+    temple_name: str
+    status: Literal["payment_submitted"]
+    phase: str = "temple_payment"
