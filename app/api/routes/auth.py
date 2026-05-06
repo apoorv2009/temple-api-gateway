@@ -84,3 +84,20 @@ async def signin(payload: SignInRequest) -> SignInResponse:
         default_error="Unable to sign in",
     )
     return SignInResponse.model_validate(body)
+
+
+@router.get("/prewarm")
+async def prewarm() -> dict[str, str]:
+    settings = get_settings()
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(settings.upstream_timeout_seconds),
+        ) as client:
+            await client.get(f"{settings.identity_service_url}/health")
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to prewarm identity service",
+        ) from exc
+
+    return {"status": "warm"}
