@@ -20,6 +20,10 @@ from app.schemas.temple import (
 router = APIRouter()
 
 
+def _retry_delay_seconds(attempt: int) -> float:
+    return min(12.0, float(2 ** attempt))
+
+
 async def _forward_request(
     *,
     method: str,
@@ -38,7 +42,7 @@ async def _forward_request(
         except httpx.HTTPError as exc:
             last_error = exc
             if attempt < attempts - 1:
-                await asyncio.sleep(1 + attempt)
+                await asyncio.sleep(_retry_delay_seconds(attempt + 1))
                 continue
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -47,7 +51,7 @@ async def _forward_request(
 
         if response.status_code >= 500:
             if attempt < attempts - 1:
-                await asyncio.sleep(1 + attempt)
+                await asyncio.sleep(_retry_delay_seconds(attempt + 1))
                 continue
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
