@@ -3,7 +3,14 @@ import httpx
 from fastapi import APIRouter, HTTPException, status
 
 from app.core.config import get_settings
-from app.schemas.auth import SignInRequest, SignInResponse, SignUpRequest, SignUpResponse
+from app.schemas.auth import (
+    PushTokenRegisterRequest,
+    PushTokenRegisterResponse,
+    SignInRequest,
+    SignInResponse,
+    SignUpRequest,
+    SignUpResponse,
+)
 
 router = APIRouter()
 
@@ -84,6 +91,18 @@ async def signin(payload: SignInRequest) -> SignInResponse:
         default_error="Unable to sign in",
     )
     return SignInResponse.model_validate(body)
+
+
+@router.post("/push-tokens/register", response_model=PushTokenRegisterResponse)
+async def register_push_token(
+    payload: PushTokenRegisterRequest,
+) -> PushTokenRegisterResponse:
+    body = await _forward_auth_request(
+        path="/api/v1/auth/push-tokens/register",
+        body=payload.model_dump(),
+        default_error="Unable to register push notifications",
+    )
+    return PushTokenRegisterResponse.model_validate(body)
 
 
 @router.get("/prewarm")
